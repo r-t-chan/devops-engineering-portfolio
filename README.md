@@ -1,28 +1,18 @@
-# Platform Engineering Portfolio
+# DevOps Engineering Portfolio
 
-DevOps / Platform Engineer with 4+ years of experience operating infrastructure in a HIPAA-regulated SaaS environment.
+Case studies and architecture write-ups from production infrastructure work. Details are generalized and sanitized — these document the patterns and decisions, not internal configurations.
 
-My experience spans:
+## Projects
 
-- AWS Infrastructure
-- Terraform
-- GitHub Actions
-- Kubernetes
-- Docker
-- OpenSearch SIEM
-- Prometheus/Grafana/Loki
-- Keycloak
-- Platform Security
-- Compliance Automation
+| Project | Summary |
+|---------|---------|
+| [Proxmox bare-metal migration](./projects/proxmox-baremetal-migration/) | Migrating 14 cloud droplets to bare metal behind a NAT gateway — design, cutover plan, and results (~$1,500 CAD/month saved) |
 
-This repository contains examples, documentation, architecture diagrams, and engineering projects demonstrating production-oriented platform engineering practices.
+## Related repos
 
-## Highlights
+- [keycloak-zabbix-monitoring](https://github.com/r-t-chan/keycloak-zabbix-monitoring) — Zabbix template + alert routing for Keycloak's Prometheus metrics
+- [terraform-aws-lambda-eventbridge](https://github.com/r-t-chan/terraform-aws-lambda-eventbridge) — reusable Terraform module for scheduled Lambda jobs
 
-- Manage biweekly release cycles across 40+ services in 16 environments
-- Provision AWS infrastructure using Terraform
-- Built and maintained OpenSearch SIEM environments
-- Migrated DigitalOcean infrastructure to OVHCloud + Proxmox
-- Implemented CI/CD workflows using GitHub Actions
-- Supported FedRAMP compliance initiatives
-- Administer enterprise Keycloak SSO
+## Background
+
+DevOps Engineer at a HIPAA-regulated telehealth SaaS company. Day to day: GitHub Actions CI/CD across 40+ services, AWS infrastructure via Terraform, OpenSearch SIEM, Keycloak SSO administration, and FedRAMP compliance work.
