@@ -13,11 +13,11 @@ This worked at small team size. At any meaningful scale it accumulated the usual
 3. **No expiry.** A static SSH key doesn't expire. A compromised or leaked key remained valid until someone explicitly removed it, and there was no mechanism to detect or enforce rotation.
 4. **No audit trail.** Knowing who currently had which level of access required reading `authorized_keys` files across every server and matching public key fingerprints back to individuals. There was no centralised, queryable record.
 
-The goal: tie access to our existing Google Workspace identity, eliminate the manual sysadmin step for granting and revoking access, and make the keys short-lived by default.
+The goal: tie access to our existing Google Workspace identity, eliminate the manual sysadmin step for granting and revoking access, and replace static keys with time-limited credentials.
 
 ## What OPKSSH is
 
-[OPKSSH](https://github.com/openpubkey/opkssh) is an implementation of the OpenPubKey protocol applied to SSH. Instead of a developer distributing a static public key to servers, they authenticate with an OIDC provider (Google, in our case), and OPKSSH produces a short-lived SSH certificate cryptographically bound to that identity. The certificate carries the user's email and group membership claims from the OIDC token. It expires when the token does — typically one hour.
+[OPKSSH](https://github.com/openpubkey/opkssh) is an implementation of the OpenPubKey protocol applied to SSH. Instead of a developer distributing a static public key to servers, they authenticate with an OIDC provider (Google, in our case), and OPKSSH produces an SSH certificate cryptographically bound to that identity. The certificate carries the user's email and group membership claims from the OIDC token and has a configurable lifetime — long enough to cover a normal working day without interruption, but finite, unlike a static key.
 
 The SSH server verifies the certificate against the OIDC provider's public keys and checks the identity's group claims against a local policy that maps groups to permitted Linux accounts. If both checks pass, the connection is allowed. No `authorized_keys` file involved.
 
@@ -58,7 +58,7 @@ flowchart LR
     gw["Google Workspace\n(OIDC provider + group membership)"]
 
     subgraph devs["Developers"]
-        cli["opkssh login\n→ ephemeral cert (~1h)"]
+        cli["opkssh login\n→ time-limited cert"]
     end
 
     subgraph servers["Dev servers (each)"]
@@ -131,7 +131,7 @@ We ran both methods in parallel throughout the transition so no developer lost a
 
 4. **Developer-by-developer rollout.** Each developer installed the OPKSSH client, ran `opkssh login --provider=google`, confirmed they could connect to the account they expected, then had their static key removed from `authorized_keys`. Done in small batches so any issues were isolated.
 
-5. **Handle long-running sessions.** A few developers kept persistent tmux sessions that would outlive the one-hour cert. We documented re-running `opkssh login` to refresh and reconnect, and communicated this before removing old keys for those developers specifically.
+5. **Communicate the cert lifecycle.** The cert is valid for a long session but does eventually expire — developers needed to know to run `opkssh login` again when it did. We documented this before removing old keys rather than letting people discover it unexpectedly.
 
 6. **Final cleanup.** Once all developers were on OPKSSH, removed the remaining `authorized_keys` files and dropped `AuthorizedKeysFile` from `sshd_config` to prevent keys being added back. Removed the two unattributed keys surfaced in the audit without incident — neither had been used recently.
 
@@ -140,7 +140,7 @@ We ran both methods in parallel throughout the transition so no developer lost a
 ## Results
 
 - **Access changes no longer require a sysadmin.** Adding or removing someone from a Google Group is done in the Workspace admin console by anyone with that permission — no server access required, no ticket queue.
-- **Offboarding is one action.** Suspend or remove the Google account; the OIDC token can no longer be issued and the next connection attempt fails. The one-hour cert expiry is the outer bound on residual access after a suspension — no `authorized_keys` entries to hunt down.
+- **Offboarding is one action.** Suspend or remove the Google account; the OIDC token can no longer be issued and the next connection attempt fails. The cert lifetime is the outer bound on residual access after a suspension — no `authorized_keys` entries to hunt down.
 - **Keys expire automatically.** The maximum credential lifetime is the token expiry. A leaked cert is self-revoking. The old model had no equivalent mechanism.
 - **The audit surfaced orphaned keys.** The pre-migration fingerprint audit found two keys belonging to nobody current. Under the old model these would have continued to sit in `authorized_keys` indefinitely — OPKSSH makes that class of problem structurally impossible since access is tied to an active Google identity.
 - **Onboarding is faster.** Add to the right Google Group; developer installs the OPKSSH client and runs `opkssh login`. No key exchange, no sysadmin involvement, no waiting.
@@ -148,5 +148,5 @@ We ran both methods in parallel throughout the transition so no developer lost a
 ## What I'd do differently
 
 - **Do the key fingerprint audit before anything else.** We started configuring servers and then did the audit in parallel. The two orphaned keys we found created a small scramble to figure out whether they were safe to remove. Run the audit first, resolve any unknowns, then start the migration.
-- **Communicate cert expiry upfront.** The first developer we migrated was surprised when an active SSH session dropped after an hour. We knew this was a property of OPKSSH but hadn't made it explicit in our internal documentation before starting. Now the setup guide leads with it.
+- **Communicate cert expiry upfront.** A couple of developers were caught off guard the first time their cert expired mid-session. We knew this was a property of OPKSSH but hadn't made it prominent in the internal setup docs. Now the setup guide leads with it.
 - **Script the Google Group → access tier check.** During the parallel run period we had a few cases where someone's Google Group membership didn't match what was in `authorized_keys` (access had drifted over time without a clear record). A script that compares group membership to current `authorized_keys` state and flags discrepancies would have found these faster.
