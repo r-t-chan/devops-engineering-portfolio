@@ -8,6 +8,7 @@ Case studies and architecture write-ups from production infrastructure work. Det
 |---------|---------|
 | [Proxmox bare-metal migration](./projects/proxmox-baremetal-migration/) | Migrating 14 cloud droplets to bare metal behind a NAT gateway — design, cutover plan, and results (~$1,500 CAD/month saved) |
 | [OpenSearch SIEM build](./projects/siem-opensearch-build/) | Self-managed OpenSearch SIEM at a HIPAA-regulated SaaS — ingestion pipeline, detection-as-code with Sigma, tiered retention, and cross-source correlation across 40+ services |
+| [OPKSSH dev access migration](./projects/opkssh-dev-access/) | Replacing SSH key management with OPKSSH tied to Google Workspace — ephemeral certs, SSO-based onboarding/offboarding, and three-tier access control via Google Groups |
 
 ## Related repos
 
