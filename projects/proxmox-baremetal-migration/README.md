@@ -60,20 +60,23 @@ flowchart LR
 
 ## Migration approach
 
-1. **Inventory and classify.** Catalogued all 14 droplets: what runs on each, what talks to what, which had data that needed to move versus services that could be rebuilt from configuration.
-2. **Rebuild over copy where possible.** Services already deployed via configuration (Docker Compose, deploy scripts) were rebuilt fresh on new VMs — cleaner than imaging, and it validated that our environment setup was actually reproducible.
-3. **Data migration for the rest.** Databases and stateful services were synced ahead of time, then re-synced during the cutover window to minimize the gap.
+1. **Inventory.** Catalogued all 14 droplets: what runs on each and what talks to what.
+2. **Full disk images over SSH.** Each droplet's disk was copied in full over SSH and brought up as a Proxmox VM, so services, data, and state carried across intact instead of being rebuilt.
+3. **Reconfigure for bare metal.** Ansible remediated each imported VM for its new home:
+   - **DigitalOcean artifacts removed.** `droplet-agent` and `do-agent` uninstalled, DigitalOcean apt repositories dropped, and cloud-init's DigitalOcean datasource disabled, so VMs stopped querying the `169.254.169.254` metadata service and overwriting network and hostname settings at boot.
+   - **Networking and DNS.** Each droplet's public-IP interface config in `/etc/network/interfaces` replaced with an RFC1918 address on `vmbr1` and a default route via the NAT gateway VM. Resolvers pointed at internal DNS instead of DigitalOcean's. Hostnames and `/etc/hosts` entries referencing the old public IPs fixed, along with application configs that had public IPs or droplet hostnames hard-coded.
+   - **Proxmox fit.** `qemu-guest-agent` installed and enabled so Proxmox can see guest IPs and run clean shutdowns and snapshots. `fstab` and GRUB entries fixed for the new disk devices. Guest NIC MTU set to 1400 to work around a Path MTU Discovery blackhole on OVHcloud's routed path, where full-size frames were silently dropped.
 4. **Parallel run.** New environments came up on the internal network and were validated by the team while the droplets still existed. Nothing was destroyed until its replacement was confirmed working.
 5. **Cutover and decommission.** DNS and team access flipped to the new environments; droplets were snapshotted, then destroyed in stages over the following weeks.
 
 ## Results
 
-- **~$1,500 CAD/month** in hosting costs eliminated — the bare-metal lease is a flat cost well below the droplet fleet's combined bill, with substantially better hardware.
+- **About $18,000 CAD a year saved**, net of the bare-metal lease. The lease is a flat cost well below the droplet fleet's combined bill, with substantially better hardware.
 - **Attack surface reduced from 14 public IPs to 1.** Dev VMs are no longer internet-addressable at all.
 - **Better hardware for the money.** Dedicated CPU and NVMe storage noticeably improved environment performance compared to shared-vCPU droplets.
 - **Snapshot/restore via Proxmox** gave us environment-level backups that were previously per-droplet and ad hoc.
 
 ## What I'd do differently
 
-- Start the inventory earlier. The classification work (rebuild vs. migrate) took longer than the migration itself, and a couple of "nobody remembers what this droplet does" discoveries cost days.
+- Start the inventory earlier. A couple of "nobody remembers what this droplet does" discoveries cost days.
 - Set up the internal DNS zone before moving the first VM, not midway through. Early environments were reached by IP, which created temporary config drift that had to be cleaned up later.
