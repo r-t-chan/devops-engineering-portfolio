@@ -60,20 +60,20 @@ flowchart LR
 
 ## Migration approach
 
-1. **Inventory and classify.** Catalogued all 14 droplets: what runs on each, what talks to what, which had data that needed to move versus services that could be rebuilt from configuration.
-2. **Rebuild over copy where possible.** Services already deployed via configuration (Docker Compose, deploy scripts) were rebuilt fresh on new VMs — cleaner than imaging, and it validated that our environment setup was actually reproducible.
-3. **Data migration for the rest.** Databases and stateful services were synced ahead of time, then re-synced during the cutover window to minimize the gap.
+1. **Inventory.** Catalogued all 14 droplets: what runs on each and what talks to what.
+2. **Full disk images over SSH.** Each droplet's disk was copied in full over SSH and brought up as a Proxmox VM, so services, data, and state carried across intact instead of being rebuilt.
+3. **Reconfigure for bare metal.** Ansible remediated the imported VMs for their new home: DNS and networking for the internal bridge, and DigitalOcean-specific artifacts removed.
 4. **Parallel run.** New environments came up on the internal network and were validated by the team while the droplets still existed. Nothing was destroyed until its replacement was confirmed working.
 5. **Cutover and decommission.** DNS and team access flipped to the new environments; droplets were snapshotted, then destroyed in stages over the following weeks.
 
 ## Results
 
-- **~$1,500 CAD/month** in hosting costs eliminated — the bare-metal lease is a flat cost well below the droplet fleet's combined bill, with substantially better hardware.
+- **About $18,000 CAD a year saved**, net of the bare-metal lease. The lease is a flat cost well below the droplet fleet's combined bill, with substantially better hardware.
 - **Attack surface reduced from 14 public IPs to 1.** Dev VMs are no longer internet-addressable at all.
 - **Better hardware for the money.** Dedicated CPU and NVMe storage noticeably improved environment performance compared to shared-vCPU droplets.
 - **Snapshot/restore via Proxmox** gave us environment-level backups that were previously per-droplet and ad hoc.
 
 ## What I'd do differently
 
-- Start the inventory earlier. The classification work (rebuild vs. migrate) took longer than the migration itself, and a couple of "nobody remembers what this droplet does" discoveries cost days.
+- Start the inventory earlier. A couple of "nobody remembers what this droplet does" discoveries cost days.
 - Set up the internal DNS zone before moving the first VM, not midway through. Early environments were reached by IP, which created temporary config drift that had to be cleaned up later.
